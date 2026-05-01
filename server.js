@@ -284,6 +284,63 @@ app.post('/api/automation/quarto-piscar', async (req, res) => {
   res.json({ ok: true, durationMs: 5000 });
 });
 
+app.post('/api/automation/quarto-piscar-off', async (req, res) => {
+  const entrada = findByName('Quarto entrada');
+  const saida = findByName('Quarto saida');
+  if (!entrada?.device || !saida?.device) {
+    return res.status(400).json({ error: 'Quarto entrada ou Quarto saida não conectada' });
+  }
+
+  stopEffect(entrada);
+  stopEffect(saida);
+
+  const startBlink = (entry, intervalMs) => {
+    const dp = entry.meta.switchDp || 20;
+    let state = false;
+    let alive = true;
+    const loop = async () => {
+      while (alive) {
+        state = !state;
+        try {
+          await entry.device.set({ dps: dp, set: state });
+        } catch {}
+        if (!alive) return;
+        await sleep(intervalMs);
+      }
+    };
+    entry.effect = { type: 'blink', stop: () => { alive = false; } };
+    loop();
+  };
+
+  startBlink(entrada, 100);
+  startBlink(saida, 200);
+
+  setTimeout(async () => {
+    stopEffect(entrada);
+    stopEffect(saida);
+    await sleep(600);
+
+    const ensureOffConfirmed = async (entry, attempts = 6) => {
+      const switchDp = entry.meta.switchDp || 20;
+      for (let i = 0; i < attempts; i++) {
+        if (entry.on === false) return true;
+        try { await entry.device.set({ dps: switchDp, set: false }); } catch {}
+        const start = Date.now();
+        while (Date.now() - start < 700) {
+          if (entry.on === false) return true;
+          await sleep(80);
+        }
+      }
+      console.error(`[${entry.meta.name}] não confirmou OFF após ${attempts} tentativas`);
+      return false;
+    };
+
+    await Promise.all([ensureOffConfirmed(entrada), ensureOffConfirmed(saida)]);
+  }, 5000);
+
+  res.json({ ok: true, durationMs: 5000 });
+});
+
 app.post('/api/lamps/:id/stop', (req, res) => {
   const entry = devices[req.params.id];
   if (!entry) return res.status(404).json({ error: 'lâmpada desconhecida' });

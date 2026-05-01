@@ -39,10 +39,10 @@ export default function App() {
 function QuartoAutomation() {
   const [running, setRunning] = useState(false);
 
-  const start = async () => {
+  const run = async (fn) => {
     setRunning(true);
     try {
-      await api.quartoPiscar();
+      await fn();
       setTimeout(() => setRunning(false), 5200);
     } catch (err) {
       alert(err.message);
@@ -55,10 +55,13 @@ function QuartoAutomation() {
       <div className="card-header">
         <h2>Automação Quarto (entrada + saída)</h2>
       </div>
-      <p>Pisca por 5s (entrada 100ms / saída 200ms), depois liga em branco com brilho mínimo.</p>
+      <p>Pisca por 5s (entrada 100ms / saída 200ms).</p>
       <div className="row">
-        <button disabled={running} onClick={start}>
-          {running ? 'Executando...' : 'Iniciar piscar 5s'}
+        <button disabled={running} onClick={() => run(() => api.quartoPiscar())}>
+          {running ? 'Executando...' : 'Piscar 5s → termina LIGADA'}
+        </button>
+        <button disabled={running} onClick={() => run(() => api.quartoPiscarOff())}>
+          {running ? 'Executando...' : 'Piscar 5s → termina DESLIGADA'}
         </button>
       </div>
     </div>
